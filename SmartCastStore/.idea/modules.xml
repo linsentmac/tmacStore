@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/SmartCastStore.iml" filepath="$PROJECT_DIR$/SmartCastStore.iml" />
+      <module fileurl="file://$PROJECT_DIR$/smartShop/smartShop.iml" filepath="$PROJECT_DIR$/smartShop/smartShop.iml" />
+    </modules>
+  </component>
+</project>
