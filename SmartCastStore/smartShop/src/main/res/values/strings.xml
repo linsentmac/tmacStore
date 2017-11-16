@@ -8,4 +8,5 @@
     <string name="download_complete">打开</string>
     <string name="downloading">下载中</string>
     <string name="waitting">继续下载</string>
+    <string name="installing">安装中</string>
 </resources>

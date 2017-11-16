@@ -64,6 +64,10 @@ public class DownLoadButton extends AppCompatButton {
      * 下载中断等待状态
      */
     public final static int STATE_WAITTING = 4;
+    /**
+     * 安装中状态
+     */
+    public final static int STATE_INSTALLING = 5;
 
     /**
      * 当前状态
@@ -170,6 +174,7 @@ public class DownLoadButton extends AppCompatButton {
      */
     public void setDownLoadProgress(int state, int percent, String packageName) {
         StateMachine.getInstance().setDownloadPercent(packageName, percent);
+        StateMachine.getInstance().setDownLoadState(packageName, state);
         this.mPackageName = packageName;
         this.curState = state;
         this.curPrecent = percent;
@@ -213,8 +218,9 @@ public class DownLoadButton extends AppCompatButton {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         String tip = "";
-        Log.d(TAG, "onDraw = " + curState);
-        switch (curState) {
+        int downLoadState = StateMachine.getInstance().getDownLoadState(mPackageName);
+        Log.d(TAG, "onDraw = " + downLoadState);
+        switch (downLoadState) {
             case STATE_NORMAL:
                 tip = getResources().getString(R.string.download);
                 StateMachine.getInstance().setDownloadPercent(mPackageName, StateMachine.defaultPercent);
@@ -245,12 +251,17 @@ public class DownLoadButton extends AppCompatButton {
             case STATE_INSTALL:
                 Log.d(TAG, "STATE_INSTALL");
                 tip = getResources().getString(R.string.install);
-                StateMachine.getInstance().setDownloadPercent(mPackageName, StateMachine.defaultPercent);
+                //StateMachine.getInstance().setDownloadPercent(mPackageName, StateMachine.defaultPercent);
                 setBackgroundDrawable(completeBackground);
                 break;
             case STATE_WAITTING:
                 Log.d(TAG, "STATE_WAITTING");
                 tip = getResources().getString(R.string.waitting);
+                setBackgroundDrawable(completeBackground);
+                break;
+            case STATE_INSTALLING:
+                Log.d(TAG, "STATE_INSTALLING");
+                tip = getResources().getString(R.string.installing);
                 setBackgroundDrawable(completeBackground);
                 break;
         }

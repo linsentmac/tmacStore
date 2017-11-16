@@ -83,7 +83,7 @@
     <com.lenovo.smartShop.view.DownLoadButton
         android:id="@+id/btn_item"
         android:layout_width="70dp"
-        android:visibility="visible"
+        android:visibility="invisible"
         android:layout_height="40px"
         android:textColor="@android:color/white"
         app:normalBackground="@drawable/rect_normal_bg"

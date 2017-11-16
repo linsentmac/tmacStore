@@ -4,11 +4,19 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.os.Environment;
 import android.util.Log;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 /**
@@ -22,6 +30,9 @@ public class SCPackageManager {
     private final static String TAG = "SC-PackageManager";
     public static String PATH = Environment.getExternalStorageDirectory() + "/SmartShop/";
     private final static int PACKAGE_INDEX = 1;
+    public final static int FILE_EXIST = 2;
+    public final static int FILE_NOT_EXIST = 3;
+    public final static int BAD_FILE = 4;
 
     /**
      * 查询app是否已安装存在
@@ -56,17 +67,103 @@ public class SCPackageManager {
         return false;
     }
 
+    public static boolean isAppInstalled(Context context, String appPackageName){
+        mContext = context;
+        PackageManager pm = mContext.getPackageManager();
+        boolean installed = false;
+        try {
+            pm.getPackageInfo(appPackageName, PackageManager.GET_ACTIVITIES);
+            installed = true;
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+            installed = false;
+        }
+        return installed;
+    }
 
-    public static boolean queryAppInstallPackage(String packageName){
+
+    public static int queryAppInstallPackage(String packageName, int size, String md5Str){
         File specItemDir = new File(PATH);
         File[] files = specItemDir.listFiles();
-        for (File file : files){
-            Log.d(TAG, "name = " + file.getName());
-            if(file.getName().equals(packageName)){
-                return true;
+        if(files != null){
+            for (File file : files){
+                Log.d(TAG, "name = " + file.getName());
+                //getPackageSize(file);
+                if(file.getName().equals(packageName)){
+                    Log.d(TAG, "original size = " + size);
+                    if(getPackageSize(file) >= size
+                            && getFileMD5(file).equals(md5Str.toUpperCase())){
+                        return FILE_EXIST;
+                    }else {
+                        deleteInstallPackage(packageName);
+                        return BAD_FILE;
+                    }
+                }
             }
         }
-        return false;
+        return FILE_NOT_EXIST;
+    }
+
+    public static void queryAppInstallPackage(final String packageName, final int size, final String md5Str, final QueryInstallPackage callback){
+        File specItemDir = new File(PATH);
+        final File[] files = specItemDir.listFiles();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if(files != null){
+                    for (File file : files){
+                        Log.d(TAG, "name = " + file.getName());
+                        //getPackageSize(file);
+                        String md5File = getFileMD5(file);
+                        if(file.getName().equals(packageName)){
+                            Log.d(TAG, "original size = " + size);
+                            if(getPackageSize(file) >= size
+                                    && md5File != null
+                                    && md5File.equals(md5Str.toUpperCase())){
+                                callback.onResponseState(FILE_EXIST);
+                            }else {
+                                deleteInstallPackage(packageName);
+                                callback.onResponseState(BAD_FILE);
+                            }
+                        }
+                    }
+                }
+            }
+        }).start();
+
+    }
+
+    private static int getPackageSize(File file){
+        long size = 0;
+        if(file.exists()){
+            try {
+                FileInputStream fis = new FileInputStream(file);
+                size = fis.getChannel().size();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }else {
+            Log.d(TAG, "file is not exist");
+        }
+        Log.d(TAG, "file size = " + size);
+        return (int) size;
+    }
+
+    private static boolean isPackageArchive(String appPackageName){
+        boolean result = false;
+        try {
+            PackageManager pm = mContext.getPackageManager();
+            PackageInfo info = pm.getPackageArchiveInfo(appPackageName, PackageManager.GET_ACTIVITIES);
+            if(info != null){
+                result = true;
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            result = false;
+        }
+        return result;
     }
 
     public static void deleteInstallPackage(String packageName){
@@ -96,6 +193,100 @@ public class SCPackageManager {
         intent.setComponent(new ComponentName(appPackageName,
                 appAcitivityName));
         mContext.startActivity(intent);
+    }
+
+    /**
+     * 获取apk安装包的md5
+     * @param file
+     * @return
+     */
+    public static String getFileMD5(File file) {
+        if (!file.isFile()) {
+            return null;
+        }
+        MessageDigest digest = null;
+        FileInputStream in = null;
+        byte buffer[] = new byte[1024];
+        int len;
+        try {
+            digest = MessageDigest.getInstance("MD5");
+            in = new FileInputStream(file);
+            while ((len = in.read(buffer, 0, 1024)) != -1) {
+                digest.update(buffer, 0, len);
+            }
+            in.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+        return bytesToHexString(digest.digest());
+    }
+
+    public static String bytesToHexString(byte[] src) {
+        StringBuilder stringBuilder = new StringBuilder("");
+        if (src == null || src.length <= 0) {
+            return null;
+        }
+        for (int i = 0; i < src.length; i++) {
+            int v = src[i] & 0xFF;
+            String hv = Integer.toHexString(v);
+            if (hv.length() < 2) {
+                stringBuilder.append(0);
+            }
+            stringBuilder.append(hv);
+        }
+        Log.d(TAG, "Apk file md5 = " + stringBuilder.toString().toUpperCase());
+        return stringBuilder.toString().toUpperCase();
+    }
+
+    /**
+     * 获取已安装apk的md5
+     * @param appPackageName
+     * @return
+     */
+    public static String getSignMd5Str(String appPackageName){
+        try {
+            PackageInfo info = mContext.getPackageManager().getPackageInfo(appPackageName, PackageManager.GET_SIGNATURES);
+            Signature[] signatures = info.signatures;
+            Signature signature = signatures[0];
+            String signStr = encryptionMD5(signature.toByteArray());
+            Log.d(TAG, "md5Str = " + signStr);
+            return signStr;
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+            Log.d(TAG, "error = " + e.getMessage().toString());
+        }
+        return null;
+    }
+
+    /**
+     * MD5加密
+     * @param byteStr 需要加密的内容
+     * @return 返回 byteStr的md5值
+     */
+    public static String encryptionMD5(byte[] byteStr) {
+        MessageDigest messageDigest = null;
+        StringBuffer md5StrBuff = new StringBuffer();
+        try {
+            messageDigest = MessageDigest.getInstance("MD5");
+            messageDigest.reset();
+            messageDigest.update(byteStr);
+            byte[] byteArray = messageDigest.digest();
+            for (int i = 0; i < byteArray.length; i++) {
+                if (Integer.toHexString(0xFF & byteArray[i]).length() == 1) {
+                    md5StrBuff.append("0").append(Integer.toHexString(0xFF & byteArray[i]));
+                } else {
+                    md5StrBuff.append(Integer.toHexString(0xFF & byteArray[i]));
+                }
+            }
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return md5StrBuff.toString();
+    }
+
+    public static abstract class QueryInstallPackage{
+        public void onResponseState(int state){}
     }
 
 }

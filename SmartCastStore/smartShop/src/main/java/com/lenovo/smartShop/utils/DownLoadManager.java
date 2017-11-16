@@ -6,6 +6,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Message;
 import android.support.v4.content.FileProvider;
 import android.util.Log;
 import android.widget.ListView;
@@ -21,9 +23,13 @@ import com.yuan.leopardkit.download.model.DownloadInfo;
 import com.yuan.leopardkit.interfaces.IDownloadProgress;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
@@ -36,12 +42,23 @@ import okhttp3.Request;
 public class DownLoadManager {
     private static final String TAG = "SC-DownLoadManager";
     private static Context mContext;
-    private static Handler mHandler;
     private static File file;
+    private Handler mHandler;
     private static DownLoadManager mInstance;
+    private HandlerThread handlerThread;
 
     private DownLoadManager(Context context){
         mContext = context;
+        handlerThread = new HandlerThread("install-package");
+        handlerThread.start();
+        mHandler = new Handler(handlerThread.getLooper()){
+            @Override
+            public void handleMessage(Message msg) {
+                super.handleMessage(msg);
+                File file = (File) msg.obj;
+                installPacakageByPm(file);
+            }
+        };
     }
 
     public static DownLoadManager getInstance(Context context){
@@ -207,6 +224,118 @@ public class DownLoadManager {
         } else {
             return null;
         }
+    }
+
+    public void installPacakageByPm(File file){
+
+        String[] args = {"pm", "install", "-r", getUriForFile(mContext, file).getPath()};
+        final String[] result = {null};
+        final ProcessBuilder processBuilder = new ProcessBuilder(args);
+        final Process[] process = {null};
+        final InputStream[] errIs = {null};
+        final InputStream[] inIs = {null};
+
+        try{
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            int read=-1;
+            process[0] = processBuilder.start();
+            errIs[0] = process[0].getErrorStream();
+            while((read = errIs[0].read()) != -1){
+                baos.write(read);
+            }
+            baos.write('\n');
+            inIs[0] = process[0].getInputStream();
+            while((read= inIs[0].read())!=-1){
+                baos.write(read);
+            }
+
+            byte[] data=baos.toByteArray();
+
+            result[0] = new String(data);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            String log = e.toString() + ":" + "file is write ex!";
+            Log.e("", log);
+        }
+
+        /*new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try{
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    int read=-1;
+                    process[0] = processBuilder.start();
+                    errIs[0] = process[0].getErrorStream();
+                    while((read = errIs[0].read()) != -1){
+                        baos.write(read);
+                    }
+                    baos.write('\n');
+                    inIs[0] = process[0].getInputStream();
+                    while((read= inIs[0].read())!=-1){
+                        baos.write(read);
+                    }
+
+                    byte[] data=baos.toByteArray();
+
+                    result[0] = new String(data);
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    String log = e.toString() + ":" + "file is write ex!";
+                    Log.e("", log);
+                }
+            }
+        }).start();*/
+
+
+    }
+
+
+
+    public void sendInstallMessage(File file){
+        Message msg = new Message();
+        msg.obj = file;
+        mHandler.sendMessage(msg);
+    }
+
+    public void installPackageByReflect(File file){
+        Class<?>pmService;
+        Class<?> activityTherad;
+        Method method;
+
+        try {
+            activityTherad = Class.forName("android.app.ActivityThread");
+            Class<?> paramTypes[] = getParamTypes(activityTherad, "getPackageManager");
+            method = activityTherad.getMethod("getPackageManager", paramTypes);
+            Object PackageManagerService = method.invoke(activityTherad);
+            pmService = PackageManagerService.getClass();
+            Class<?> paramTypes1[] =getParamTypes(pmService, "installPackage");
+            method = pmService.getMethod("installPackage", paramTypes1);
+            method.invoke(PackageManagerService, (Object) getUriForFile(mContext, file), null, 0, null);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private Class<?>[] getParamTypes(Class<?> cls, String mName){
+        Class<?> cs[] = null;
+        Method[] mtd = cls.getMethods();
+
+        for (int i = 0; i < mtd.length; i++){
+            if(!mtd[i].getName().equals(mName)){
+                continue;
+            }
+            cs = mtd[i].getParameterTypes();
+        }
+        return cs;
     }
 
 }

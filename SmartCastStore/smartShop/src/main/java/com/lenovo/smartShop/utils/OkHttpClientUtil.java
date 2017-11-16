@@ -29,6 +29,7 @@ import java.net.FileNameMap;
 import java.net.URLConnection;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.Callback;
 import okhttp3.Call;
@@ -60,7 +61,10 @@ public class OkHttpClientUtil
 
     private OkHttpClientUtil()
     {
-        mOkHttpClient = new OkHttpClient();
+        mOkHttpClient = new OkHttpClient.Builder()
+                .connectTimeout(5000L, TimeUnit.MILLISECONDS)
+                .readTimeout(10000L, TimeUnit.MILLISECONDS)
+                .build();
        /* mOkHttpClient.setConnectTimeout(10, TimeUnit.SECONDS);
         mOkHttpClient.setWriteTimeout(10, TimeUnit.SECONDS);
         mOkHttpClient.setReadTimeout(30, TimeUnit.SECONDS);
@@ -684,17 +688,21 @@ public class OkHttpClientUtil
         requestCall.enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
+                Log.d(TAG, "onFailure");
                 sendFailedStringCallback(request, e, callback);
             }
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
+                Log.d(TAG, "onResponse = ");
                 try {
                     final String string = response.body().string();
+                    Log.d(TAG, "onResponse = " + string);
 //                    Log.d("deliveryResult","response >"+string);
                     if (callback.mType == String.class) {
                         sendSuccessResultCallback(string, callback);
                     } else {
+                        Log.d(TAG, "onResponse match type");
                         Object o = mGson.fromJson(string, callback.mType);
                         sendSuccessResultCallback(o, callback);
                     }

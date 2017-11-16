@@ -20,7 +20,7 @@
         <ImageView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:src="@mipmap/search_icon"/>
+            android:src="@mipmap/search"/>
 
         <TextView
             android:layout_width="wrap_content"
@@ -57,5 +57,12 @@
         android:layout_centerInParent="true"
         android:visibility="gone"
         android:src="@mipmap/disconnect"/>
+
+    <ProgressBar
+        android:id="@+id/load_progress"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_centerInParent="true"
+        style="@android:style/Widget.Material.ProgressBar"/>
 
 </RelativeLayout>

@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES"/>
 
     <application
         android:name="com.lenovo.smartShop.utils.MyApplication"
@@ -46,6 +47,7 @@
 
                 <action android:name="android.intent.action.PACKAGE_REMOVED" />
                 <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGES_SUSPENDED" />
 
                 <data android:scheme="package" />
             </intent-filter>
